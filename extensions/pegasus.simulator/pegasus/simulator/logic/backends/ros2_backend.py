@@ -406,7 +406,9 @@ class ROS2Backend(Backend):
         self.graphical_sensors_writers[data["camera_name"]] = [writer]
 
         # Check if depth is enabled, if so, set the depth properties
-        if "depth" in data:
+        #if "depth" in data:
+        #mangern er goated with the sauce
+        if "distance_to_image_plane" in data ["camera"].get_current_frame(clone=False):
 
             # Create the writer for the depth camera
             writer_depth = rep.writers.get("DistanceToImagePlaneSDROS2PublishImage")
@@ -415,6 +417,12 @@ class ROS2Backend(Backend):
 
             # Add the writer to the dictionary
             self.graphical_sensors_writers[data["camera_name"]].append(writer_depth)
+
+            writer_pcl = rep.writers.get("DistanceToImagePlaneSDROS2PublishPointCloud")
+            writer_pcl.initialize(nodeNamespace=self._namespace + str(self._id), topicName=data["camera_name"] + "/pointcloud", frameId=data["camera_name"], queueSize=1)
+            writer_pcl.attach([render_prod_path])
+
+            self.graphical_sensors_writers[data["camera_name"]].append(writer_pcl)
 
         # Create a writer for publishing the camera info
         writer_info = rep.writers.get("ROS2PublishCameraInfo")

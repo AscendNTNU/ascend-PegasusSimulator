@@ -165,3 +165,7 @@ class MonocularCamera(GraphicalSensor):
             self._state = None
 
         return self._state
+    
+    def get_pointcloud(self):
+        assert self._depth
+        return self._camera.get_pointcloud()
