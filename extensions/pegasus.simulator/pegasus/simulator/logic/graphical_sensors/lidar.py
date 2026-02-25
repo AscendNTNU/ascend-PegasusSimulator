@@ -64,7 +64,8 @@ class Lidar(GraphicalSensor):
             "IsaacSensorCreateRtxLidar",
             path=self._lidar_name,
             parent=self._vehicle.prim_path + "/body",
-            config= self._sensor_configuration["sensor_configuration"],
+            #config= self._sensor_configuration["sensor_configuration"],
+            config= self._sensor_configuration,
             translation=(self._position[0], self._position[1], self._position[2]),
             orientation=Gf.Quatd(self._orientation[3], self._orientation[0], self._orientation[1], self._orientation[2])
         )
@@ -98,6 +99,10 @@ class Lidar(GraphicalSensor):
         """
 
         # Just return the prim path and the name of the lidar
-        self._state = {"lidar_name": self._lidar_name, "stage_prim_path": self._stage_prim_path}
+        #self._state = {"lidar_name": self._lidar_name, "stage_prim_path": self._stage_prim_path}
+        self._state = {
+            "lidar_name": self._lidar_name, 
+            "stage_prim_path": str(self._sensor.GetPath()),  # Get the actual sensor path
+        }
 
         return self._state
