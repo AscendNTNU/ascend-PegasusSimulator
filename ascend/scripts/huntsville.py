@@ -12,23 +12,27 @@ simulation_app = SimulationApp({"headless": False})
 # -----------------------------------
 # The actual script should start here
 # -----------------------------------
+# Auxiliary scipy and numpy modules
+import os.path
+
 import omni.timeline
 from omni.isaac.core.world import World
-from pathlib import Path
+from pegasus.simulator.logic.backends.px4_mavlink_backend import (
+    PX4MavlinkBackend,
+    PX4MavlinkBackendConfig,
+)
+from pegasus.simulator.logic.backends.ros2_backend import ROS2Backend
+from pegasus.simulator.logic.graphical_sensors.lidar import Lidar
+from pegasus.simulator.logic.graphical_sensors.monocular_camera import MonocularCamera
+from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
+from pegasus.simulator.logic.sensors import GPS, IMU, Barometer, Magnetometer
+from pegasus.simulator.logic.state import State
+from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
 
 # Import the Pegasus API for simulating drones
 from pegasus.simulator.params import ROBOTS, SIMULATION_ENVIRONMENTS
-from pegasus.simulator.logic.state import State
-from pegasus.simulator.logic.backends.px4_mavlink_backend import PX4MavlinkBackend, PX4MavlinkBackendConfig
-from pegasus.simulator.logic.vehicles.multirotor import Multirotor, MultirotorConfig
-from pegasus.simulator.logic.interface.pegasus_interface import PegasusInterface
-from pegasus.simulator.logic.sensors import Magnetometer, IMU, Barometer, GPS
-from pegasus.simulator.logic.graphical_sensors.monocular_camera import MonocularCamera
-from pegasus.simulator.logic.graphical_sensors.lidar import Lidar
-from pegasus.simulator.logic.backends.ros2_backend import ROS2Backend
-# Auxiliary scipy and numpy modules
-import os.path
 from scipy.spatial.transform import Rotation
+
 
 class PegasusApp:
     """
@@ -46,19 +50,18 @@ class PegasusApp:
         # Start the Pegasus Interface
         self.pg = PegasusInterface()
 
-        # Acquire the World, .i.e, the singleton that controls that is a one stop shop for setting up physics, 
+        # Acquire the World, .i.e, the singleton that controls that is a one stop shop for setting up physics,
         # spawning asset primitives, etc.
         self.pg._world = World(**self.pg._world_settings)
         self.world = self.pg.world
 
         # Launch one of the worlds provided by NVIDIA
-        self.pg.load_environment(SIMULATION_ENVIRONMENTS["Curved Gridroom"])
+        self.pg.load_environment(SIMULATION_ENVIRONMENTS["iarc10arena"])
 
-        num_vehicles = 5
+        num_vehicles = 4
         gap_meters = 2
         for i in range(num_vehicles):
             self.vehicle_factory(i, gap_x_axis=gap_meters)
-        
 
         # Reset the simulation environment so that all articulations (aka robots) are initialized
         self.world.reset()
@@ -78,47 +81,54 @@ class PegasusApp:
         config_multirotor = MultirotorConfig()
 
         # Create the multirotor configuration
-        mavlink_config = PX4MavlinkBackendConfig({
-            "vehicle_id": vehicle_id,
-            "px4_autolaunch": True,
-            "px4_dir": self.pg.px4_path,
-            "px4_vehicle_model": self.pg.px4_default_airframe # CHANGE this line to 'iris' if using PX4 version bellow v1.14
-        })
-        #config_multirotor.backends = [PX4MavlinkBackend(mavlink_config)]
-        config_multirotor.backends = [PX4MavlinkBackend(mavlink_config), ROS2Backend(vehicle_id=vehicle_id, config={
-            "namespace": "huntsville",
-            "pub_sensors": True,
-            "pub_imu": True,
-            "pub_gps": True,
-            "pub_graphical_sensors": True,
-            "pub_state": True,
-            "pub_tf": False,
-            "sub_control": True,
-            })
+        mavlink_config = PX4MavlinkBackendConfig(
+            {
+                "vehicle_id": vehicle_id,
+                "px4_autolaunch": True,
+                "px4_dir": self.pg.px4_path,
+                "px4_vehicle_model": self.pg.px4_default_airframe,  # CHANGE this line to 'iris' if using PX4 version bellow v1.14
+            }
+        )
+        # config_multirotor.backends = [PX4MavlinkBackend(mavlink_config)]
+        config_multirotor.backends = [
+            PX4MavlinkBackend(mavlink_config),
+            ROS2Backend(
+                vehicle_id=vehicle_id,
+                config={
+                    "namespace": "drone_sim",
+                    "pub_sensors": True,
+                    "pub_imu": True,
+                    "pub_gps": True,
+                    "pub_graphical_sensors": True,
+                    "pub_state": True,
+                    "pub_tf": False,
+                    "sub_control": True,
+                },
+            ),
         ]
-        
+
         # Sensors
         front_camera_prim_path = "body/front_camera"
         down_camera_prim_path = "body/down_camera"
         lidar_prim_path = "body/lidar"
         front_camera_config = {
             "position": [0.1, 0.0, 0.07],
-
-            #Orient camera forwards
+            # Orient camera forwards
             "orientation": [0.0, 0.0, -90.0],
             "depth": True,
-            "update_rate": 60.0
+            "update_rate": 60.0,
         }
         down_camera_config = {
             "position": [0.0, 0.0, 0.0],
             "depth": True,
-            #Orient camera downwards
+            # Orient camera downwards
             "orientation": [0.0, -90.0, -90.0],
-            "update_rate": 60.0
+            "update_rate": 60.0,
         }
         lidar_config = {
             "sensor_configuration": "Example_Rotary_2D",
-            "update_rate": 60.0
+            "show_render": True,
+            "update_rate": 60.0,
         }
 
         config_multirotor.sensors = [
@@ -131,17 +141,17 @@ class PegasusApp:
         config_multirotor.graphical_sensors = [
             MonocularCamera(front_camera_prim_path, front_camera_config),
             MonocularCamera(down_camera_prim_path, down_camera_config),
-            Lidar(lidar_prim_path, lidar_config)
+            Lidar(lidar_prim_path, lidar_config),
         ]
 
         Multirotor(
             "/World/quadrotor",
-            ROBOTS['Iris'],
+            ROBOTS["Iris"],
             vehicle_id,
             [gap_x_axis * vehicle_id, 0.0, 0.07],
-            Rotation.from_euler("XYZ", [0.0, 0.0, 0.0], degrees=True).as_quat(),
-            config=config_multirotor
-            )
+            Rotation.from_euler("XYZ", [0.0, 0.0, 90.0], degrees=True).as_quat(),
+            config=config_multirotor,
+        )
 
     def run(self):
         """
@@ -153,14 +163,14 @@ class PegasusApp:
 
         # The "infinite" loop
         while simulation_app.is_running() and not self.stop_sim:
-
             # Update the UI of the app and perform the physics step
             self.world.step(render=True)
-        
+
         # Cleanup and stop
         carb.log_warn("PegasusApp Simulation App is closing.")
         self.timeline.stop()
         simulation_app.close()
+
 
 def main():
 
@@ -169,6 +179,7 @@ def main():
 
     # Run the application loop
     pg_app.run()
+
 
 if __name__ == "__main__":
     main()
