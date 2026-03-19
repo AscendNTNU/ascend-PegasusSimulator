@@ -54,6 +54,15 @@ OMNIVERSE_ENVIRONMENTS = {
     "Exhibition Hall": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.5/NVIDIA/Assets/Scenes/Templates/Interior/ZetCG_ExhibitionHall.usd"
 }
 
+# Define ascend assets path
+ASCEND_ASSETS_PATH = str((Path(ROOT).parent / "ascend").resolve())
+
+ASCEND_ENVIRONMENTS = {
+    "Huntsvilla" : "environments/huntsvilla.usd",
+    "Gaming" : "environments/gaming.usd",
+    "iarc10arena" : "environments/iarc10arena.usd",
+}
+
 
 SIMULATION_ENVIRONMENTS = {}
 
@@ -66,6 +75,12 @@ for asset in NVIDIA_SIMULATION_ENVIRONMENTS:
 # Add the omniverse assets to the list
 for asset in OMNIVERSE_ENVIRONMENTS:
     SIMULATION_ENVIRONMENTS[asset] = OMNIVERSE_ENVIRONMENTS[asset]
+
+# woah denne kommentaren er på norsk. er ikke det sånn helt crazy?
+for asset in ASCEND_ENVIRONMENTS:
+    SIMULATION_ENVIRONMENTS[asset] = (
+        ASCEND_ASSETS_PATH + "/" + ASCEND_ENVIRONMENTS[asset]
+    )
 
 BACKENDS = {
     "px4": "px4",
